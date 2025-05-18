@@ -11,6 +11,7 @@ GPAN 网盘系统-------安全可靠的局域网文件存储解决方案
 这些被圈的就是架构
 
 _那么怎么查看架构呢_
+
 ![image](https://github.com/user-attachments/assets/09bf9a8e-39f1-463c-944c-d2010dc46a2e)
 
 右键此电脑，选择属性
