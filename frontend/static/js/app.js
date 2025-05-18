@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (response.ok) {
                 alert('上传成功');
-                refreshFileList();
+                refreshFileList('after upload');
             } else {
                 alert(`上传失败: ${result.message}`);
             }
@@ -62,40 +62,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 刷新文件列表
-    async function refreshFileList() {
+    async function refreshFileList(caller = 'unknown') {
+        console.log(`refreshFileList called from: ${caller}`);
         const loading = document.getElementById('loading');
+        const fileList = document.getElementById('fileList');
+        
+        // 清除现有事件监听
+        const newFileList = fileList.cloneNode(false);
+        fileList.parentNode.replaceChild(newFileList, fileList);
+        
         try {
             loading.style.display = 'block';
-            fileList.innerHTML = '';
+            newFileList.innerHTML = '';
             
-            const response = await fetch('/api/files');
+            const response = await fetch('/api/files?t=' + Date.now()); // 防止缓存
             if (!response.ok) {
-                throw new Error('获取文件列表失败');
+                throw new Error(`获取文件列表失败 (状态码: ${response.status})`);
             }
             const files = await response.json();
-            console.log('文件列表API响应:', files); // 调试日志
             
-            loading.style.display = 'none';
+            if (!Array.isArray(files)) {
+                throw new Error('服务器返回无效的文件列表格式');
+            }
+
+            // 去重处理
+            const uniqueFiles = [];
+            const seenIds = new Set();
             files.forEach(file => {
-                console.log('单个文件数据:', file); // 调试日志
+                if (!seenIds.has(file.ID)) {
+                    seenIds.add(file.ID);
+                    uniqueFiles.push(file);
+                }
+            });
+
+            loading.style.display = 'none';
+            
+            if (uniqueFiles.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'file-item empty';
+                li.textContent = '暂无文件';
+                newFileList.appendChild(li);
+                return;
+            }
+
+            uniqueFiles.forEach(file => {
                 const li = document.createElement('li');
                 li.className = 'file-item';
                 li.innerHTML = `
-                    <span>${file.Name}</span>
+                    <span>${file.Name || '未命名文件'}</span>
                     <span>
-                        ${new Date(file.UpdatedAt).toLocaleString()} | 
-                        ${formatFileSize(file.Size)}
+                        ${file.UpdatedAt ? new Date(file.UpdatedAt).toLocaleString() : '未知时间'} | 
+                        ${file.Size ? formatFileSize(file.Size) : '未知大小'}
                     </span>
                     <span>
                         <button data-id="${file.ID}" class="download-btn">下载</button>
                         <button data-id="${file.ID}" class="delete-btn">删除</button>
                     </span>
                 `;
-                fileList.appendChild(li);
+                newFileList.appendChild(li);
             });
 
             // 使用事件委托处理按钮点击
-            fileList.addEventListener('click', (e) => {
+            newFileList.addEventListener('click', (e) => {
                 const btn = e.target.closest('button');
                 if (!btn) return;
                 
@@ -113,11 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (error) {
             console.error('获取文件列表失败:', error);
+            loading.style.display = 'none';
+            const li = document.createElement('li');
+            li.className = 'file-item error';
+            li.textContent = `加载失败: ${error.message}`;
+            fileList.appendChild(li);
         }
     }
 
     // 初始化文件列表
-    refreshFileList();
+    refreshFileList('initial load');
 });
 
 // 辅助函数
@@ -129,42 +162,7 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// 全局函数声明
-const refreshFileList = async () => {
-    const loading = document.getElementById('loading');
-    try {
-        loading.style.display = 'block';
-        fileList.innerHTML = '';
-        
-        const response = await fetch('/api/files');
-        if (!response.ok) {
-            throw new Error('获取文件列表失败');
-        }
-        const files = await response.json();
-        console.log('文件列表API响应:', files);
-        
-        loading.style.display = 'none';
-        files.forEach(file => {
-            console.log('单个文件数据:', file);
-            const li = document.createElement('li');
-            li.className = 'file-item';
-            li.innerHTML = `
-                <span>${file.Name}</span>
-                <span>
-                    ${new Date(file.UpdatedAt).toLocaleString()} | 
-                    ${formatFileSize(file.Size)}
-                </span>
-                <span>
-                    <button data-id="${file.ID}" class="download-btn">下载</button>
-                    <button data-id="${file.ID}" class="delete-btn">删除</button>
-                </span>
-            `;
-            fileList.appendChild(li);
-        });
-    } catch (error) {
-        console.error('获取文件列表失败:', error);
-    }
-};
+
 
 // 文件操作函数
 async function downloadFile(fileId) {
@@ -185,7 +183,7 @@ async function deleteFile(fileId) {
             
             if (response.ok) {
                 alert('删除成功');
-                await refreshFileList();
+                await refreshFileList('after delete');
             } else {
                 const result = await response.json();
             }
@@ -196,8 +194,4 @@ async function deleteFile(fileId) {
     }
 }
 
-// 初始化
-document.addEventListener('DOMContentLoaded', () => {
-    // 原有初始化代码...
-    refreshFileList();
-});
+

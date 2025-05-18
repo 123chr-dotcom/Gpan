@@ -64,6 +64,14 @@ func UploadFile(c *gin.Context) {
 	})
 }
 
+// FileResponse 定义API响应格式
+type FileResponse struct {
+	ID        uint   `json:"ID"`
+	Name      string `json:"Name"`
+	Size      int64  `json:"Size"`
+	UpdatedAt string `json:"UpdatedAt"`
+}
+
 // GetFiles 获取文件列表
 func GetFiles(c *gin.Context) {
 	files, err := models.GetAllFiles()
@@ -72,7 +80,18 @@ func GetFiles(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, files)
+	// 转换为前端期望的格式
+	response := make([]FileResponse, 0) // 确保返回空数组而不是nil
+	for _, file := range files {
+		response = append(response, FileResponse{
+			ID:        file.ID,
+			Name:      file.Name,
+			Size:      file.Size,
+			UpdatedAt: file.UpdatedAt.Format("2006/1/2 15:04:05"),
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // DownloadFile 文件下载

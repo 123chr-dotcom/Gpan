@@ -40,7 +40,7 @@ func GetAllFiles() ([]File, error) {
 		return nil, fmt.Errorf("database connection is not initialized")
 	}
 	var files []File
-	err := database.DB.Find(&files).Error
+	err := database.DB.Order("id desc").Find(&files).Error
 	return files, err
 }
 
